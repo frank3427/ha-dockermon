@@ -25,13 +25,13 @@ You can change some configuration options for this service by editing config/con
 | Option                 | Description                                                                                                      | Default Value        |
 |------------------------|------------------------------------------------------------------------------------------------------------------|----------------------|
 | debug                  | If set to true, will output some helpful debug messages to the console.                                          | false                |
-| http.port              | The HTTP port the service listens on.                                                                            | 8126                 |
-| http.username          | If set all calls to this service must use HTTP basic authentication with this username.                          | None                 |
-| http.password          | If set all calls to this service must use HTTP basic authentication with this password.                          | None                 |
+| http.port              | The HTTP port the service listens on. Must be a valid HTTP port or windows socket.                                                                          | 8126                 |
+| http.username          | If set all calls to this service must use HTTP basic authentication with this username. **If set, must not be an empty value.**                         | None                 |
+| http.password          | If set all calls to this service must use HTTP basic authentication with this password. **If set, must not be an empty value.**                         | None                 |
 | docker_connection.type | How the service connects to docker. Valid options are socket or http                                             | socket               |
 | docker_connection.path | The path to the Docker socket. Useful when running this service on the host directly (not in a Docker container) | /var/run/docker.sock |
-| docker_connection.host | The host IP/Domain of the host Docker to connect to. Only used when docker_connection.type is set to http        | None                 |
-| docker_connection.port | The port of the host Docker to connect to. Only used when docker_connection.type is set to http                  | None                 |
+| docker_connection.host | The host IP/Domain of the host Docker to connect to. Only used when `docker_connection.type` is set to `http`. **If set, must not be an empty value.**         | None                 |
+| docker_connection.port | The port of the host Docker to connect to. Only used when `docker_connection.type` is set to `http`.  **If set, must not be an empty value.**                  | None                 |
 
 ### Connecting to Docker
 
@@ -91,6 +91,10 @@ philhawthorne/ha-dockermon:arm
 
 You may also use an older version. Check [Docker Hub](https://hub.docker.com/r/philhawthorne/ha-dockermon/tags/) for the list of tags you may use.
 
+In order to make arm CPU's report memory usage add the following to your kernel command line located at `/boot/cmdline.txt`.
+```
+cgroup_enable=cpuset cgroup_enable=memory cgroup_memory=1
+```
 ## Using this service
 
 ### HTTP Endpoints
@@ -117,7 +121,7 @@ Valid options for `state` are `start`, `stop`, `pause`, and `unpause` to start, 
 ```bash
 curl --request POST \
 --url http://127.0.0.1:8126/container/grafana \
---header 'content-type: application/octet-stream' \
+--header 'content-type: application/json' \
 --data '{"state": "start"}'
 ```
 
@@ -138,7 +142,7 @@ You must also send a `command` variable which contains the command you would lik
 ```bash
 curl --request POST \
 --url http://127.0.0.1:8126/container/grafana/exec \
---header 'content-type: application/octet-stream' \
+--header 'content-type: application/json' \
 --data '{"command": "ls -a"}'
 ```
 
@@ -251,6 +255,8 @@ switch:
     name: Grafana
     body_on: '{"state": "start"}'
     body_off: '{"state": "stop"}'
+    headers:
+      Content-Type: application/json
     is_on_template: '{{ value_json is not none and value_json.state == "running" }}'
     
 switch:
@@ -259,6 +265,8 @@ switch:
     name: Mosquitto
     body_on: '{"state": "unpause"}'
     body_off: '{"state": "pause"}'
+    headers:
+      Content-Type: application/json
     is_on_template: '{{ value_json is not none and value_json.state == "running" }}'
 ```
 ### Home Assistant Custom Component

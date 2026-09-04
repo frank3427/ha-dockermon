@@ -2,35 +2,20 @@ var express = require("express");
 var basicAuth = require('express-basic-auth')
 var bodyParser = require('body-parser');
 var Docker = require('dockerode');
-var yaml = require("node-yaml");
 var fs = require('fs');
-var Config = require('merge-config');
-var config = new Config();
+var config = require('./default_settings.js');
 var docker = false;
-
-//Default settings
-config.file('default_settings.json');
-
-
-//Read settings file if it exists
-var config_dir = process.env.config_dir || "./config";
-console.log("Loading settings from " + config_dir);
-config.file(config_dir);
-
-//We now have our settings loaded
 
 //Setup express
 var app = express();
-app.use(bodyParser.json({
-    type: 'application/octet-stream'
-}));
+app.use(bodyParser.json());
 
 //If we have set a username and password, require it
-if (config.get("http:username")) {
+if (config.get("http.username")) {
     var authUsers = {
         users: {}
     }
-    authUsers.users[config.get("http:username")] = config.get("http:password");
+    authUsers.users[config.get("http.username")] = config.get("http.password");
     app.use(basicAuth(authUsers));
 }
 
@@ -48,7 +33,6 @@ app.all('/container/:containerId', function (req, res) {
     //Does this container exist in Docker? If not respond with 404 not found and body of off
 
     if (req.method == "POST") {
-        //First get the container
         if (config.get("debug"))
             console.log("Updating container " + containerId);
 
@@ -145,6 +129,12 @@ app.all('/container/:containerId', function (req, res) {
                         state: "running"
                     });
                 });
+             } else {
+                res.status(500);
+                res.send({
+                    error: "Invalid state specified"
+                });
+                return;
              }
         }, function (status, message) {
             if (config.get("debug"))
@@ -430,31 +420,31 @@ app.post('/container/:containerId/exec', function(req, res) {
 })
 
 //Attempt to connect to the Docker daemon
-switch (config.get("docker_connection:type")) {
+switch (config.get("docker_connection.type")) {
     case "http":
-        var docker = new Docker({ host: config.get("docker_connection:host"), port: config.get("docker_connection:port") });
+        var docker = new Docker({ host: config.get("docker_connection.host"), port: config.get("docker_connection.port") });
     break;
 
     case "socket":
         //Check if the socket is okay
         try{
-            let stats = fs.statSync(config.get("docker_connection:path"));
+            let stats = fs.statSync(config.get("docker_connection.path"));
 
             if (!stats.isSocket()) {
-                throw new Error('Unable to connect to Docker socket at ' + config.get("docker_connection:path") + ". Is Docker running?");
+                throw new Error('Unable to connect to Docker socket at ' + config.get("docker_connection.path") + ". Is Docker running?");
             }
         } catch (e) {
-            console.error('Unable to connect to Docker socket at ' + config.get("docker_connection:path") + ". Is Docker running?");
+            console.error('Unable to connect to Docker socket at ' + config.get("docker_connection.path") + ". Is Docker running?");
             if (config.get("debug"))
                 console.log(e);
             process.exit(1);
         }
         //Socket is okay, connect to it
-        docker = new Docker({ socketPath: config.get("docker_connection:path") });
+        docker = new Docker({ socketPath: config.get("docker_connection.path") });
     break;
 
     default:
-        throw new Error("Docker connection type " + config.get("docker_connection:type") + " is invalid");
+        throw new Error("Docker connection type " + config.get("docker_connection.type") + " is invalid");
     break;
 }
 
@@ -462,7 +452,7 @@ startServer(docker);
 
 function startServer(docker)
 {
-    var server = app.listen(config.get("http:port"), function () {
+    var server = app.listen(config.get("http.port"), function () {
         console.log("HA-Dockermon server listening on port " + server.address().port);
     });
 }
